@@ -32,3 +32,8 @@ build/
 # Testing
 coverage/
 .nyc_output/
+
+# Test files with sensitive data (keep local only)
+test-circl-auth.js
+test-live-fallback.js
+CIRCL_AUTH_TEST_RESULTS.md

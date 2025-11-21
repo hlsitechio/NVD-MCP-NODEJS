@@ -11,6 +11,8 @@ import * as cheerio from 'cheerio';
 const NVD_BASE_URL = 'https://services.nvd.nist.gov/rest/json';
 const CVE_API_VERSION = '2.0';
 const NVD_API_KEY = process.env.NVD_API_KEY;
+const FALLBACK_API_TOKEN = process.env.FALLBACK_API_TOKEN || process.env.CIRCL_API_TOKEN; // Optional: enhances fallback performance
+const FALLBACK_FEED_KEY = process.env.FALLBACK_FEED_KEY || process.env.CIRCL_FEED_KEY; // Optional: feed/webhook access
 
 // ============================================================================
 // FALLBACK API CLIENTS (Tier 2, 3, 4)
@@ -18,7 +20,7 @@ const NVD_API_KEY = process.env.NVD_API_KEY;
 
 /**
  * Query CIRCL Vulnerability-Lookup API (Tier 2 Fallback)
- * Free, unlimited, no authentication required
+ * Free, unlimited, optional authentication for enhanced features
  */
 async function queryCIRCL(params) {
   const { cveId, recent } = params;
@@ -32,11 +34,17 @@ async function queryCIRCL(params) {
     throw new Error('CIRCL does not support keyword search directly');
   }
 
-  const response = await fetch(endpoint, {
-    headers: {
-      'User-Agent': 'NVD-MCP-Server/1.0 (Rate Limit Fallback)'
-    }
-  });
+  // Build headers with optional authentication
+  const headers = {
+    'User-Agent': 'NVD-MCP-Server/1.1 (Rate Limit Fallback)'
+  };
+
+  // Add authentication token if available (enhances performance)
+  if (FALLBACK_API_TOKEN) {
+    headers['Authorization'] = `Bearer ${FALLBACK_API_TOKEN}`;
+  }
+
+  const response = await fetch(endpoint, { headers });
 
   if (!response.ok) {
     throw new Error(`CIRCL API error: ${response.status}`);
