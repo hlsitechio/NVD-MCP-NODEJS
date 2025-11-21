@@ -1,6 +1,6 @@
 <div align="center">
 
-![NVD MCP Server Banner](./nvd_nodejs_banner.png)
+![NVD MCP Server Banner](./mcp_node_20.png)
 
 # NVD MCP Server (Node.js)
 
