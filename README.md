@@ -1,9 +1,15 @@
+<div align="center">
+
+![NVD MCP Server Banner](./nvd_nodejs_banner.png)
+
 # NVD MCP Server (Node.js)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 [![MCP](https://img.shields.io/badge/MCP-1.0.4-blue)](https://modelcontextprotocol.io)
 [![NVD API](https://img.shields.io/badge/NVD%20API-v2.0-red)](https://nvd.nist.gov/developers/vulnerabilities)
+
+</div>
 
 A Model Context Protocol (MCP) server for querying the NIST National Vulnerability Database (NVD) API. This Node.js implementation provides comprehensive access to 300K+ CVE (Common Vulnerabilities and Exposures) records through Claude Code and other MCP clients.
 

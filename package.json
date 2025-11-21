@@ -29,7 +29,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/nvd-mcp-server"
+    "url": "https://github.com/hlsitechio/NVD-MCP-NODEJS"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4"
