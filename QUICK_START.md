@@ -85,7 +85,7 @@ Add "in concise format" to any query:
 ## 🔧 Troubleshooting
 
 ### Server Not Starting
-1. Check Node.js is installed: `node --version` (need 18+)
+1. Check Node.js is installed: `node --version` (need 20+)
 2. Verify dependencies: `cd G:\ai_ghost_chat\nvd-mcp-server && npm install`
 3. Restart VSCode
 

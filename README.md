@@ -5,7 +5,7 @@
 # NVD MCP Server (Node.js)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![MCP](https://img.shields.io/badge/MCP-1.0.4-blue)](https://modelcontextprotocol.io)
 [![NVD API](https://img.shields.io/badge/NVD%20API-v2.0-red)](https://nvd.nist.gov/developers/vulnerabilities)
 
@@ -310,7 +310,8 @@ See how both implementations handle common tasks. Our Node.js version offers mor
 
 ### Prerequisites
 
-- Node.js 18.0.0 or higher
+- **Node.js 20.0.0 or higher** (LTS recommended)
+  - Why Node 20+? Stable fetch API, better performance, longer LTS support
 - npm or yarn
 
 ### Install Dependencies
