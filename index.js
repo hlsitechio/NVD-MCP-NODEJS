@@ -6,10 +6,301 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import * as cheerio from 'cheerio';
 
 const NVD_BASE_URL = 'https://services.nvd.nist.gov/rest/json';
 const CVE_API_VERSION = '2.0';
 const NVD_API_KEY = process.env.NVD_API_KEY;
+
+// ============================================================================
+// FALLBACK API CLIENTS (Tier 2, 3, 4)
+// ============================================================================
+
+/**
+ * Query CIRCL Vulnerability-Lookup API (Tier 2 Fallback)
+ * Free, unlimited, no authentication required
+ */
+async function queryCIRCL(params) {
+  const { cveId, recent } = params;
+
+  let endpoint;
+  if (cveId) {
+    endpoint = `https://cve.circl.lu/api/cve/${cveId}`;
+  } else if (recent) {
+    endpoint = `https://cve.circl.lu/api/last`;
+  } else {
+    throw new Error('CIRCL does not support keyword search directly');
+  }
+
+  const response = await fetch(endpoint, {
+    headers: {
+      'User-Agent': 'NVD-MCP-Server/1.0 (Rate Limit Fallback)'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`CIRCL API error: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Query OSV.dev API (Tier 3 Fallback)
+ * Google-maintained, free, focuses on open source packages
+ */
+async function queryOSV(params) {
+  const { cveId } = params;
+
+  if (!cveId) {
+    throw new Error('OSV requires CVE ID for lookup');
+  }
+
+  const endpoint = 'https://api.osv.dev/v1/query';
+  const body = {
+    vulnerability: {
+      id: cveId
+    }
+  };
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    throw new Error(`OSV API error: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Scrape NVD website directly (Tier 4 Fallback - Last Resort)
+ * Uses lightweight Cheerio for HTML parsing
+ */
+async function scrapeNVDPage(cveId) {
+  const url = `https://nvd.nist.gov/vuln/detail/${cveId}`;
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'NVD-MCP-Server/1.0 (Educational/Research)',
+      'Accept': 'text/html,application/xhtml+xml'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to scrape NVD: ${response.status}`);
+  }
+
+  const html = await response.text();
+  const $ = cheerio.load(html);
+
+  return {
+    success: true,
+    cve: cveId,
+    summary: $('[data-testid="vuln-description"]').text().trim(),
+    cvss: $('[data-testid="vuln-cvss3-base-score"]').text().trim() ||
+          $('[data-testid="vuln-cvss2-base-score"]').text().trim(),
+    severity: $('[data-testid="vuln-cvss3-severity-badge"]').text().trim() ||
+              $('[data-testid="vuln-cvss2-severity"]').text().trim(),
+    Published: $('[data-testid="vuln-published-on"]').text().trim(),
+    Modified: $('[data-testid="vuln-last-modified-on"]').text().trim(),
+    cwe: $('[data-testid="vuln-CWEs-link"]').first().text().trim(),
+    references: $('[data-testid="vuln-hyperlinks-link"]')
+      .map((i, el) => $(el).attr('href'))
+      .get()
+  };
+}
+
+/**
+ * Normalize responses from different sources to match NVD format
+ */
+function normalizeResponse(data, source) {
+  if (source === 'circl') {
+    return {
+      resultsPerPage: 1,
+      startIndex: 0,
+      totalResults: 1,
+      format: "NVD_CVE",
+      version: "2.0",
+      vulnerabilities: [{
+        cve: {
+          id: data.cve || data.id,
+          sourceIdentifier: "CIRCL",
+          published: data.Published || null,
+          lastModified: data.Modified || null,
+          vulnStatus: "Analyzed",
+          descriptions: [{
+            lang: "en",
+            value: data.summary || "No description available"
+          }],
+          metrics: {
+            cvssMetricV31: data.cvss ? [{
+              cvssData: {
+                baseScore: parseFloat(data.cvss),
+                baseSeverity: data.cvss >= 9.0 ? "CRITICAL" :
+                             data.cvss >= 7.0 ? "HIGH" :
+                             data.cvss >= 4.0 ? "MEDIUM" : "LOW"
+              }
+            }] : []
+          },
+          weaknesses: data.cwe ? [{
+            description: [{
+              lang: "en",
+              value: data.cwe
+            }]
+          }] : [],
+          references: (data.references || []).map(ref => ({
+            url: typeof ref === 'string' ? ref : ref.url,
+            source: "CIRCL"
+          }))
+        }
+      }],
+      _source: "CIRCL_FALLBACK",
+      _message: "⚠️  Results from CIRCL (NVD rate limit bypass)"
+    };
+  }
+
+  if (source === 'osv') {
+    const vulns = data.vulns || [];
+    return {
+      resultsPerPage: vulns.length,
+      startIndex: 0,
+      totalResults: vulns.length,
+      format: "NVD_CVE",
+      version: "2.0",
+      vulnerabilities: vulns.map(vuln => ({
+        cve: {
+          id: vuln.id,
+          sourceIdentifier: "OSV.dev",
+          published: vuln.published || null,
+          lastModified: vuln.modified || null,
+          descriptions: [{
+            lang: "en",
+            value: vuln.summary || vuln.details || "No description available"
+          }],
+          metrics: {
+            cvssMetricV31: vuln.severity ? [{
+              cvssData: {
+                baseScore: parseFloat(vuln.severity[0].score),
+                baseSeverity: vuln.severity[0].type || "UNKNOWN"
+              }
+            }] : []
+          },
+          references: (vuln.references || []).map(ref => ({
+            url: ref.url,
+            source: "OSV.dev"
+          }))
+        }
+      })),
+      _source: "OSV_FALLBACK",
+      _message: "⚠️  Results from OSV.dev (NVD rate limit bypass)"
+    };
+  }
+
+  if (source === 'scraper') {
+    return {
+      resultsPerPage: 1,
+      startIndex: 0,
+      totalResults: 1,
+      format: "NVD_CVE",
+      version: "2.0",
+      vulnerabilities: [{
+        cve: {
+          id: data.cve,
+          sourceIdentifier: "NVD_SCRAPER",
+          published: data.Published || null,
+          lastModified: data.Modified || null,
+          vulnStatus: "Scraped",
+          descriptions: [{
+            lang: "en",
+            value: data.summary || "No description available"
+          }],
+          metrics: {
+            cvssMetricV31: data.cvss ? [{
+              cvssData: {
+                baseScore: parseFloat(data.cvss),
+                baseSeverity: data.severity || "UNKNOWN"
+              }
+            }] : []
+          },
+          weaknesses: data.cwe ? [{
+            description: [{
+              lang: "en",
+              value: data.cwe
+            }]
+          }] : [],
+          references: (data.references || []).map(ref => ({
+            url: ref,
+            source: "NVD_SCRAPER"
+          }))
+        }
+      }],
+      _source: "SCRAPER_FALLBACK",
+      _message: "⚠️  Results from web scraping (All APIs unavailable)"
+    };
+  }
+
+  return data;
+}
+
+/**
+ * Fallback orchestrator - tries alternative sources when NVD fails
+ */
+async function triggerFallback(params) {
+  console.error('🔄 NVD API failed, triggering multi-tier fallback...');
+
+  // Tier 2: Try CIRCL first
+  try {
+    console.error('→ Attempting CIRCL Vulnerability-Lookup...');
+    const circlResult = await queryCIRCL(params);
+    if (circlResult && (circlResult.success || circlResult.cve || circlResult.id)) {
+      console.error('✅ CIRCL fallback successful!');
+      return normalizeResponse(circlResult, 'circl');
+    }
+  } catch (error) {
+    console.error(`❌ CIRCL failed: ${error.message}`);
+  }
+
+  // Tier 3: Try OSV
+  if (params.cveId) {
+    try {
+      console.error('→ Attempting OSV.dev...');
+      const osvResult = await queryOSV(params);
+      if (osvResult && osvResult.vulns && osvResult.vulns.length > 0) {
+        console.error('✅ OSV fallback successful!');
+        return normalizeResponse(osvResult, 'osv');
+      }
+    } catch (error) {
+      console.error(`❌ OSV failed: ${error.message}`);
+    }
+  }
+
+  // Tier 4: Try web scraping (last resort, only for single CVE lookups)
+  if (params.cveId && !params.keyword) {
+    try {
+      console.error('→ Attempting web scraping...');
+      const scraped = await scrapeNVDPage(params.cveId);
+      if (scraped && scraped.success) {
+        console.error('✅ Web scraping fallback successful!');
+        return normalizeResponse(scraped, 'scraper');
+      }
+    } catch (error) {
+      console.error(`❌ Web scraping failed: ${error.message}`);
+    }
+  }
+
+  // All sources exhausted
+  throw new Error('All CVE data sources exhausted (NVD, CIRCL, OSV, Scraper). Please wait 30 seconds and try again.');
+}
+
+// ============================================================================
+// MAIN NVD API CLIENT (Tier 1)
+// ============================================================================
 
 /**
  * Make a request to the NVD API with rate limiting consideration
@@ -34,13 +325,20 @@ async function makeNVDRequest(endpoint, params = {}) {
 
     if (!response.ok) {
       if (response.status === 403) {
-        throw new Error('NVD API rate limit exceeded. Please wait 30 seconds or add an API key.');
+        // Rate limit hit - trigger fallback instead of throwing error
+        console.error('⚠️  NVD API rate limit exceeded, activating fallback...');
+        return await triggerFallback(params);
       }
       throw new Error(`NVD API error: ${response.status} ${response.statusText}`);
     }
 
     return await response.json();
   } catch (error) {
+    // Check if error is rate limit related
+    if (error.message.includes('rate limit') || error.message.includes('403')) {
+      console.error('⚠️  NVD API error, attempting fallback...');
+      return await triggerFallback(params);
+    }
     throw new Error(`Failed to fetch from NVD API: ${error.message}`);
   }
 }
@@ -49,13 +347,22 @@ async function makeNVDRequest(endpoint, params = {}) {
  * Format CVE data for display
  */
 function formatCVEData(data, concise = false) {
-  const { resultsPerPage, startIndex, totalResults, vulnerabilities } = data;
+  const { resultsPerPage, startIndex, totalResults, vulnerabilities, _source, _message } = data;
 
   if (!vulnerabilities || vulnerabilities.length === 0) {
     return 'No vulnerabilities found matching the criteria.';
   }
 
-  let result = `Found ${totalResults} total results (showing ${vulnerabilities.length} from index ${startIndex})\n\n`;
+  let result = '';
+
+  // Add fallback source warning if present
+  if (_message) {
+    result += `${_message}\n`;
+    result += `Data Source: ${_source}\n`;
+    result += `${'─'.repeat(80)}\n\n`;
+  }
+
+  result += `Found ${totalResults} total results (showing ${vulnerabilities.length} from index ${startIndex})\n\n`;
 
   vulnerabilities.forEach((item, index) => {
     const cve = item.cve;
