@@ -65,6 +65,231 @@ This project provides a **Node.js alternative** to the Python-based [mcp-nvd](ht
 | Deployment | Container or uvx | **npx or direct node** |
 | Configuration | Environment + config | **Environment only** |
 
+## Real-World Scenario Comparisons
+
+See how both implementations handle common tasks. Our Node.js version offers more direct solutions.
+
+### Scenario 1: Finding Recent Critical Vulnerabilities
+
+**Task**: Find all CRITICAL severity CVEs from the last 7 days
+
+#### Python/UVX Approach:
+```python
+# Using mcp-nvd (Python)
+# Tool: search_cve
+{
+  "keyword": "critical",
+  "resultsPerPage": 100
+}
+# ⚠️ Problem: No date filtering built-in
+# ⚠️ Problem: Must manually filter by date from results
+# ⚠️ Problem: Keyword search doesn't filter by CVSS severity
+# ❌ Result: Gets CVEs with "critical" in description, not by severity
+```
+
+#### Node.js/NPX Approach (This Repo):
+```javascript
+// Using NVD-MCP-NODEJS
+// Tool: search_recent_cves
+{
+  "days": 7,
+  "type": "published",
+  "severity": "CRITICAL"
+}
+// ✅ Built-in helper for recent CVEs
+// ✅ Direct CVSS severity filtering
+// ✅ Automatic date calculation
+// ✅ Result: Exact critical CVEs from last 7 days
+```
+
+**Winner**: 🏆 Node.js - Dedicated tool with proper severity filtering
+
+---
+
+### Scenario 2: Investigating Log4Shell (CVE-2021-44228)
+
+**Task**: Get CVE-2021-44228 details and track how it changed over time
+
+#### Python/UVX Approach:
+```python
+# Using mcp-nvd (Python)
+# Step 1: Get CVE details
+# Tool: get_cve
+{
+  "cveId": "CVE-2021-44228"
+}
+# ✅ Gets CVE details
+
+# Step 2: Track changes over time
+# ❌ Not possible - no change history tool
+# ❌ Must manually check NVD website
+# ❌ Cannot see when CVSS score changed
+# ❌ Cannot see when it was added to KEV
+```
+
+#### Node.js/NPX Approach (This Repo):
+```javascript
+// Using NVD-MCP-NODEJS
+// Step 1: Get CVE details
+// Tool: get_cve_by_id
+{
+  "cveId": "CVE-2021-44228"
+}
+// ✅ Gets CVE details
+
+// Step 2: Track changes over time
+// Tool: get_cve_change_history
+{
+  "cveId": "CVE-2021-44228"
+}
+// ✅ See all modifications
+// ✅ Track when analysis changed
+// ✅ See when CVSS scores updated
+// ✅ See when added to CISA KEV
+// ✅ Complete audit trail
+```
+
+**Winner**: 🏆 Node.js - Includes change history tracking
+
+---
+
+### Scenario 3: Security Dashboard for SQL Injection
+
+**Task**: Create a security dashboard showing SQL injection vulnerabilities (CWE-89)
+
+#### Python/UVX Approach:
+```python
+# Using mcp-nvd (Python)
+# Tool: search_cve
+{
+  "keyword": "SQL injection"
+}
+# ⚠️ Problem: Keyword search only
+# ⚠️ Problem: Gets partial matches, false positives
+# ⚠️ Problem: No CWE filtering
+# ⚠️ Problem: No severity filtering
+# ⚠️ Problem: Cannot filter by CVSS score
+# ❌ Result: Mixed results, needs manual filtering
+```
+
+#### Node.js/NPX Approach (This Repo):
+```javascript
+// Using NVD-MCP-NODEJS
+// Tool: search_cves
+{
+  "cweId": "CWE-89",
+  "cvssV3Severity": "HIGH",
+  "noRejected": true,
+  "resultsPerPage": 50,
+  "concise": true  // One-line summaries!
+}
+// ✅ Direct CWE filtering
+// ✅ CVSS severity filtering
+// ✅ Exclude rejected CVEs
+// ✅ Concise mode for dashboard
+// ✅ Result: Precise, clean list
+```
+
+**Winner**: 🏆 Node.js - Advanced filtering + concise mode
+
+---
+
+### Scenario 4: Monitoring CISA KEV Catalog
+
+**Task**: Check if any new vulnerabilities were added to CISA Known Exploited Vulnerabilities in the last 30 days
+
+#### Python/UVX Approach:
+```python
+# Using mcp-nvd (Python)
+# Tool: search_cve
+{
+  "keyword": "exploited"
+}
+# ❌ Problem: No KEV filtering
+# ❌ Problem: Must manually check each CVE
+# ❌ Problem: No date range for KEV additions
+# ❌ Problem: Cannot distinguish KEV vs non-KEV
+# ❌ Result: Unreliable, manual checking required
+```
+
+#### Node.js/NPX Approach (This Repo):
+```javascript
+// Using NVD-MCP-NODEJS
+// Tool: search_recent_cves
+{
+  "days": 30,
+  "type": "modified",
+  "hasKev": true
+}
+// ✅ Direct KEV filtering
+// ✅ Automatic date handling
+// ✅ Shows only KEV entries
+// ✅ Result: Exact KEV additions in 30 days
+```
+
+**Winner**: 🏆 Node.js - Built-in KEV filtering
+
+---
+
+### Scenario 5: Scanning 100 Recent CVEs Quickly
+
+**Task**: Quickly scan the last 100 published CVEs to spot critical issues
+
+#### Python/UVX Approach:
+```python
+# Using mcp-nvd (Python)
+# Tool: search_cve
+{
+  "resultsPerPage": 100
+}
+# ✅ Gets 100 CVEs
+# ⚠️ Problem: Full verbose output for all 100
+# ⚠️ Problem: Takes long time to read through
+# ⚠️ Problem: No concise mode
+# ❌ Result: Information overload
+```
+
+#### Node.js/NPX Approach (This Repo):
+```javascript
+// Using NVD-MCP-NODEJS
+// Tool: search_recent_cves
+{
+  "days": 30,
+  "resultsPerPage": 100,
+  "concise": true
+}
+// ✅ Gets 100 recent CVEs
+// ✅ One-line summaries
+// ✅ Includes CVSS scores
+// ✅ KEV indicators visible
+// ✅ Result: Scannable list
+
+// Example output:
+// CVE-2024-12345 | CVSS: 9.8 (CRITICAL) | RCE in Apache... [⚠️ KEV]
+// CVE-2024-12344 | CVSS: 7.5 (HIGH) | Auth bypass in MS...
+// CVE-2024-12343 | CVSS: 5.3 (MEDIUM) | XSS in jQuery...
+```
+
+**Winner**: 🏆 Node.js - Concise mode for fast scanning
+
+---
+
+### Feature Availability Summary
+
+| Capability | Python (uvx) | Node.js (npx) |
+|------------|--------------|---------------|
+| Get CVE by ID | ✅ `get_cve` | ✅ `get_cve_by_id` |
+| Keyword Search | ✅ `search_cve` | ✅ `search_cves` |
+| CWE Filtering | ❌ | ✅ `cweId` parameter |
+| CVSS Severity Filter | ❌ | ✅ `cvssV3Severity` |
+| Date Range Search | ❌ | ✅ `pubStartDate/pubEndDate` |
+| KEV Filtering | ❌ | ✅ `hasKev` parameter |
+| Change History | ❌ | ✅ `get_cve_change_history` |
+| Recent CVEs Helper | ❌ | ✅ `search_recent_cves` |
+| Concise Output | ✅ Yes | ✅ Yes |
+| CPE Filtering | ❌ | ✅ `cpeName` parameter |
+| Source Filtering | ❌ | ✅ `sourceIdentifier` |
+
 ## Features
 
 - **Search CVEs**: Query vulnerabilities with extensive filtering options
