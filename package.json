@@ -1,0 +1,40 @@
+{
+  "name": "@ai-ghost-chat/nvd-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for NIST National Vulnerability Database (NVD) API - Node.js implementation with npx support",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "nvd-mcp-server": "./index.js",
+    "nvd-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "nvd",
+    "nist",
+    "cve",
+    "vulnerabilities",
+    "security",
+    "model-context-protocol",
+    "claude",
+    "ai",
+    "cybersecurity"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/nvd-mcp-server"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
