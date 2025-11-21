@@ -9,6 +9,62 @@ A Model Context Protocol (MCP) server for querying the NIST National Vulnerabili
 
 **No Docker required** • **NPX compatible** • **4 powerful tools** • **API key support**
 
+## Why This Implementation?
+
+### Node.js/NPX vs Python/UVX
+
+This project provides a **Node.js alternative** to the Python-based [mcp-nvd](https://github.com/marcoeg/mcp-nvd) implementation. Here's why you might prefer this version:
+
+| Feature | Python (uvx) | This (Node.js/npx) | Advantage |
+|---------|--------------|-------------------|-----------|
+| **Number of Tools** | 2 tools | **4 tools** | 🏆 2x more functionality |
+| **Docker Required** | Yes (for testing/deployment) | **No** | 🏆 Simpler setup |
+| **API Key** | Required | **Optional** | 🏆 Works out of the box |
+| **Change History** | ❌ Not available | **✅ Full history tracking** | 🏆 Better auditing |
+| **Recent CVEs Helper** | ❌ Manual date queries | **✅ Built-in helper** | 🏆 Easier monitoring |
+| **Setup Complexity** | Medium (Python + uv) | **Easy** (just Node.js) | 🏆 Lower barrier |
+| **Concise Output** | ✅ Yes | ✅ Yes | 🤝 Parity |
+| **Runtime** | Python 3.10+ | Node.js 18+ | 🤝 Both modern |
+| **Package Manager** | uvx | **npx** | 🤝 Both standard |
+
+### When to Use Node.js Version (This Repo)
+
+✅ You already have Node.js in your environment
+✅ You want more tools (change history, recent CVEs)
+✅ You prefer simpler setup without Docker
+✅ You want API key to be optional
+✅ You need to integrate with Node.js projects
+
+### When to Use Python Version
+
+✅ You prefer Python ecosystem
+✅ You need SSE (Server-Sent Events) transport
+✅ You want Docker containerization
+✅ You're already using uvx/uv tooling
+
+### Tool Comparison
+
+#### Python Version (2 tools):
+1. `get_cve` - Get single CVE by ID
+2. `search_cve` - Search CVEs by keyword
+
+#### Node.js Version (4 tools):
+1. `get_cve_by_id` - Get single CVE by ID with concise mode
+2. `search_cves` - Search with **20+ parameters** (keywords, CVSS, CWE, dates, KEV, CPE, etc.)
+3. `get_cve_change_history` - **Track modifications** over time
+4. `search_recent_cves` - **Quick helper** for last N days
+
+### Architecture Differences
+
+| Aspect | Python Implementation | Node.js Implementation |
+|--------|----------------------|----------------------|
+| Transport | stdio + SSE | **stdio** (simpler) |
+| Framework | FastAPI concepts | **Native Node.js** |
+| Containerization | Docker + Compose | **None needed** |
+| Testing | Docker-based | **Direct execution** |
+| Deployment | Container or uvx | **npx or direct node** |
+| Configuration | Environment + config | **Environment only** |
+
 ## Features
 
 - **Search CVEs**: Query vulnerabilities with extensive filtering options
